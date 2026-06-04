@@ -70,6 +70,8 @@
   .tb:hover { background: var(--card); color: var(--text); border-color: var(--border); }
   .tb.primary { background: var(--accent); color:#fff; border-color: var(--accent); }
   .tb.primary:hover { background: var(--accent-hover); }
+  .tb.save { color: var(--green); border-color: transparent; }
+  .tb.save:hover { background: rgba(46,204,113,0.12); border-color: rgba(46,204,113,0.25); }
   .tb svg { width:15px; height:15px; flex-shrink:0; }
   .tb .kbd { font-size:10px; opacity:0.5; margin-left:3px; }
   .spacer { flex:1; }
@@ -453,6 +455,10 @@
     折叠全部
   </button>
   <div class="toolbar-sep"></div>
+  <button class="tb save" onclick="saveNow()" title="保存到服务器 (Ctrl+S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    保存
+  </button>
   <div class="spacer"></div>
   <button class="tb" onclick="toggleHelp()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -518,7 +524,7 @@
   <div class="sc-row"><span>删除</span><span class="sc-key">Delete</span></div>
   <div class="sc-row"><span>编辑</span><span class="sc-key">Enter</span></div>
   <div class="sc-row"><span>折叠/展开</span><span class="sc-key">Space</span></div>
-
+  <div class="sc-row"><span>保存</span><span class="sc-key">Ctrl+S</span></div>
   <div class="sc-row"><span>缩放</span><span class="sc-key">+/ </span></div>
   <div class="sc-row"><span>重置视图</span><span class="sc-key">0</span></div>
   <div class="sc-row"><span>平移画布</span><span class="sc-key">拖拽空白</span></div>
@@ -1197,6 +1203,16 @@ function saveData() {
   API.saveProject(data).catch(e => console.warn('Save failed:', e)).finally(() => { _savePending = false; });
 }
 
+async function saveNow() {
+  const data = serializeTasks();
+  try {
+    await API.saveProject(data);
+    showToast('已保存到服务器', 'success');
+  } catch (e) {
+    showToast('保存失败', 'error');
+  }
+}
+
 // On page unload/visibility loss, flush immediately with keepalive
 function flushSave() {
   const data = serializeTasks();
@@ -1378,6 +1394,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomIn(); }
   if ((e.metaKey || e.ctrlKey) && e.key === '-') { e.preventDefault(); zoomOut(); }
   if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); resetView(); }
+  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveNow(); }
 });
 
 // ===================== INIT =====================
