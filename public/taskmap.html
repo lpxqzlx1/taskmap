@@ -607,7 +607,7 @@ function createTask(title, parentId) {
     id,
     title: title || '新任务',
     description: '',
-    color: parentId ? (S.tasks[parentId]?.color || nextColor()) : nextColor(),
+    color: parentId ? ((S.tasks[parentId] && S.tasks[parentId].color) || nextColor()) : nextColor(),
     completed: false,
     collapsed: false,
     children: [],
@@ -662,7 +662,7 @@ function setTaskCompleted(id, completed) {
   if (task.parent) {
     const parent = S.tasks[task.parent];
     if (parent) {
-      const allDone = parent.children.every(cid => S.tasks[cid]?.completed);
+      const allDone = parent.children.every(function(cid) { return S.tasks[cid] && S.tasks[cid].completed; });
       if (allDone && !parent.completed) {
         setTaskCompleted(task.parent, true);
       } else if (!allDone && parent.completed) {
@@ -673,13 +673,13 @@ function setTaskCompleted(id, completed) {
 }
 
 function getTaskProgress(task) {
-  if (task.children.length === 0) {
+  if (!task.children || task.children.length === 0) {
     return task.completed ? 100 : 0;
   }
   let total = 0, done = 0;
   function count(tid) {
     const t = S.tasks[tid];
-    if (!t) return;
+    if (!t || !t.children) return;
     if (t.children.length === 0) {
       total++;
       if (t.completed) done++;
@@ -692,8 +692,11 @@ function getTaskProgress(task) {
 }
 
 function isTaskFullyCompleted(task) {
-  if (task.children.length === 0) return task.completed;
-  return task.children.every(cid => isTaskFullyCompleted(S.tasks[cid]));
+  if (!task.children || task.children.length === 0) return task.completed;
+  return task.children.every(cid => {
+    const child = S.tasks[cid];
+    return child ? isTaskFullyCompleted(child) : true;
+  });
 }
 
 // ===================== LAYOUT ENGINE =====================
@@ -945,8 +948,9 @@ function bindNodeEvents(el, task) {
 
   // Action delegation
   el.addEventListener('click', (e) => {
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    if (!action) return;
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
     e.stopPropagation();
     switch (action) {
       case 'toggle': toggleComplete(task.id); break;
@@ -1003,15 +1007,18 @@ function cycleColor(id) {
   const idx = COLORS.indexOf(task.color);
   task.color = COLORS[(idx + 1) % COLORS.length];
   const el = document.getElementById(id);
-  const bar = el?.querySelector('.tn-color-bar');
+  const bar = el ? el.querySelector('.tn-color-bar') : null;
   if (bar) bar.style.background = task.color;
   // Propagate color to children
   task.children.forEach(cid => {
     const child = S.tasks[cid];
     if (child) {
-      child.color = task.color;
-      const cbar = document.getElementById(cid)?.querySelector('.tn-color-bar');
-      if (cbar) cbar.style.background = task.color;
+        child.color = task.color;
+        var cel = document.getElementById(cid);
+        if (cel) {
+          var cbar = cel.querySelector('.tn-color-bar');
+          if (cbar) cbar.style.background = task.color;
+        }
     }
   });
   saveData();
@@ -1129,7 +1136,7 @@ function collapseAll() {
 
 function updateCollapseLabel() {
   const lbl = document.getElementById('collapseLabel');
-  if (S.selected && S.tasks[S.selected]?.children.length > 0) {
+  if (S.selected && S.tasks[S.selected] && S.tasks[S.selected].children.length > 0) {
     lbl.textContent = S.tasks[S.selected].collapsed ? '展开子任务' : '折叠子任务';
   }
 }
