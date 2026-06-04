@@ -1201,13 +1201,18 @@ function updateStats() {
 }
 
 // ===================== PERSISTENCE (API-based) =====================
-let _savePending = false;
+let _saveTimer = null;
 
 function saveData() {
-  if (_savePending) return;
-  _savePending = true;
-  const data = serializeTasks();
-  API.saveProject(data).catch(e => console.warn('Save failed:', e)).finally(() => { _savePending = false; });
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    try {
+      const data = serializeTasks();
+      await API.saveProject(data);
+    } catch(e) {
+      console.warn('Save failed:', e);
+    }
+  }, 300);
 }
 
 async function saveNow() {
@@ -1222,6 +1227,8 @@ async function saveNow() {
 
 // On page unload/visibility loss, flush immediately with keepalive
 function flushSave() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = null;
   const data = serializeTasks();
   const body = JSON.stringify(data);
   fetch('/api/projects/' + projectId, {
