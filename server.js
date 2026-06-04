@@ -117,8 +117,18 @@ app.post('/api/projects', (req, res) => {
 // PUT /api/projects/:id - Update project (name/color/tasks data)
 app.put('/api/projects/:id', (req, res) => {
   try {
-    const { name, color, tasks, roots, nextId, colorIdx, merge } = req.body;
+    const { name, color, tasks, roots, nextId, colorIdx, _v } = req.body;
     const projectId = req.params.id;
+
+    // Version check: reject stale writes
+    if (_v !== undefined) {
+      if (!app._versions) app._versions = {};
+      const currentV = app._versions[projectId] || 0;
+      if (_v < currentV) {
+        return res.json({ success: true, stale: true });
+      }
+      app._versions[projectId] = _v;
+    }
 
     // Update project metadata
     if (name || color) {
