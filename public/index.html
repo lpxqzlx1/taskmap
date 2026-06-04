@@ -269,6 +269,35 @@
     background: rgba(255,255,255,0.04);
   }
 
+  .rename-btn {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    opacity: 0;
+  }
+
+  .project-card:hover .rename-btn {
+    opacity: 1;
+  }
+
+  .rename-btn:hover {
+    background: var(--card-hover);
+    color: var(--accent);
+  }
+
+  .rename-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
   .project-name:focus {
     background: var(--surface);
     box-shadow: 0 0 0 2px var(--accent);
@@ -723,15 +752,12 @@
         '<div class="color-bar" style="background:' + (proj.color || '#4285f4') + '"></div>' +
         '<div class="card-content">' +
           '<div class="card-header">' +
-            '<div class="project-name" ' +
-              'contenteditable="false" ' +
-              'data-id="' + proj.id + '" ' +
-              'ondblclick="startRename(this, event)" ' +
-              'onblur="finishRename(this)" ' +
-              'onkeydown="renameKeydown(event, this)" ' +
-              'title="双击重命名">' +
+            '<div class="project-name" data-id="' + proj.id + '">' +
               escapeHtml(proj.name) +
             '</div>' +
+            '<button class="rename-btn" onclick="event.stopPropagation();startRenameInline(\'' + proj.id + '\')" title="重命名">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+            '</button>' +
           '</div>' +
           '<div class="card-meta">' +
             '<span>' + ICONS.calendar + formatDate(proj.createdAt) + '</span>' +
@@ -790,72 +816,58 @@
   function openProject(id) {
     // Don't open if user is editing name
     var activeEl = document.activeElement;
-    if (activeEl && activeEl.classList.contains('project-name') && activeEl.contentEditable === 'true') {
-      return;
-    }
-    window.open('taskmap-pomodoro.html?project=' + id, '_blank');
+    if (activeEl && activeEl.getAttribute('contenteditable') === 'true') return;
+    window.open('taskmap.html?project=' + id, '_blank');
   }
 
   // ============ Rename ============
-  function startRename(el, event) {
-    event.stopPropagation();
-    el.contentEditable = 'true';
-    el.focus();
+  function startRenameInline(id) {
+    var nameEl = document.querySelector('.project-name[data-id="' + id + '"]');
+    if (!nameEl) return;
+    var originalName = nameEl.textContent.trim();
 
-    // Select all text
+    nameEl.contentEditable = 'true';
+    nameEl.focus();
+
     var range = document.createRange();
-    range.selectNodeContents(el);
+    range.selectNodeContents(nameEl);
     var sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-  }
 
-  async function finishRename(el) {
-    el.contentEditable = 'false';
-    var id = el.getAttribute('data-id');
-    var newName = el.textContent.trim();
+    function commit() {
+      nameEl.contentEditable = 'false';
+      nameEl.removeEventListener('blur', onBlur);
+      nameEl.removeEventListener('keydown', onKey);
 
-    if (!newName) {
-      // Revert to original name
-      try {
-        var proj = await API.getProject(id);
-        if (proj) el.textContent = proj.name;
-      } catch (err) {
-        // ignore
+      var newName = nameEl.textContent.trim();
+      if (!newName || newName === originalName) {
+        nameEl.textContent = originalName;
+        return;
       }
-      return;
+      API.updateProject(id, { name: newName }).then(function() {
+        showToast('已重命名', 'success');
+      }).catch(function() {
+        nameEl.textContent = originalName;
+        showToast('重命名失败', 'error');
+      });
     }
 
-    try {
-      await API.updateProject(id, { name: newName });
-    } catch (err) {
-      showToast('重命名失败', 'error');
-      // Try to revert
-      try {
-        var proj = await API.getProject(id);
-        if (proj) el.textContent = proj.name;
-      } catch (e2) {
-        // ignore
-      }
+    function revert() {
+      nameEl.textContent = originalName;
+      nameEl.contentEditable = 'false';
+      nameEl.removeEventListener('blur', onBlur);
+      nameEl.removeEventListener('keydown', onKey);
     }
-  }
 
-  async function renameKeydown(event, el) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      el.blur();
-    } else if (event.key === 'Escape') {
-      // Revert
-      try {
-        var id = el.getAttribute('data-id');
-        var proj = await API.getProject(id);
-        if (proj) el.textContent = proj.name;
-      } catch (err) {
-        // ignore
-      }
-      el.contentEditable = 'false';
+    function onBlur() { setTimeout(commit, 100); }
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); revert(); }
     }
-    event.stopPropagation();
+
+    nameEl.addEventListener('blur', onBlur);
+    nameEl.addEventListener('keydown', onKey);
   }
 
   // ============ Delete ============
