@@ -201,7 +201,24 @@ app.post('/api/projects/import', (req, res) => {
 });
 
 // Health check
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', dataDir: DATA_DIR }));
+
+// Debug: list data files
+app.get('/api/debug', (_req, res) => {
+  try {
+    const files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR) : [];
+    const projects = readProjects();
+    res.json({
+      dataDir: DATA_DIR,
+      dirExists: fs.existsSync(DATA_DIR),
+      files,
+      projectCount: projects.length,
+      projectIds: projects.map(p => ({ id: p.id, name: p.name, hasData: fs.existsSync(getProjectFile(p.id)) })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res) => {
@@ -213,4 +230,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`TaskMap server running on http://localhost:${PORT}`);
+  console.log(`Data directory: ${DATA_DIR}`);
+  console.log(`Projects file: ${PROJECTS_FILE}`);
 });

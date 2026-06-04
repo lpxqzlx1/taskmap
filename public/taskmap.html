@@ -553,16 +553,23 @@ const API = {
   async loadProject() {
     if (!projectId) return null;
     const res = await fetch('/api/projects/' + projectId);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error('loadProject failed:', res.status, await res.text().catch(() => ''));
+      return null;
+    }
     return res.json();
   },
   async saveProject(data) {
     if (!projectId) return;
-    await fetch('/api/projects/' + projectId, {
+    const res = await fetch('/api/projects/' + projectId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ merge: true, ...data }),
+      body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      console.error('saveProject failed:', res.status, await res.text().catch(() => ''));
+    }
+    return res;
   },
   async getProjectMeta() {
     const res = await fetch('/api/projects');
@@ -1216,7 +1223,7 @@ async function saveNow() {
 // On page unload/visibility loss, flush immediately with keepalive
 function flushSave() {
   const data = serializeTasks();
-  const body = JSON.stringify({ merge: true, ...data });
+  const body = JSON.stringify(data);
   fetch('/api/projects/' + projectId, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

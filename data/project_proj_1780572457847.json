@@ -1,0 +1,31 @@
+{
+  "tasks": {
+    "t1": {
+      "id": "t1",
+      "title": "Test Task",
+      "description": "",
+      "color": "#e94560",
+      "completed": false,
+      "collapsed": false,
+      "children": [
+        "t2"
+      ],
+      "parent": null
+    },
+    "t2": {
+      "id": "t2",
+      "title": "Sub Task",
+      "description": "",
+      "color": "#4285f4",
+      "completed": true,
+      "collapsed": false,
+      "children": [],
+      "parent": "t1"
+    }
+  },
+  "roots": [
+    "t1"
+  ],
+  "nextId": 3,
+  "colorIdx": 2
+}
