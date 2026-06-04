@@ -453,14 +453,6 @@
     折叠全部
   </button>
   <div class="toolbar-sep"></div>
-  <button class="tb" onclick="exportJSON()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    导出
-  </button>
-  <button class="tb" onclick="showImportModal()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    导入
-  </button>
   <div class="spacer"></div>
   <button class="tb" onclick="toggleHelp()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -526,8 +518,7 @@
   <div class="sc-row"><span>删除</span><span class="sc-key">Delete</span></div>
   <div class="sc-row"><span>编辑</span><span class="sc-key">Enter</span></div>
   <div class="sc-row"><span>折叠/展开</span><span class="sc-key">Space</span></div>
-  <div class="sc-row"><span>导出</span><span class="sc-key">E</span></div>
-  <div class="sc-row"><span>导入</span><span class="sc-key">I</span></div>
+
   <div class="sc-row"><span>缩放</span><span class="sc-key">+/ </span></div>
   <div class="sc-row"><span>重置视图</span><span class="sc-key">0</span></div>
   <div class="sc-row"><span>平移画布</span><span class="sc-key">拖拽空白</span></div>
@@ -538,21 +529,11 @@
     * 子任务全部完成时父任务自动完成<br>
     * 点击节点底部箭头折叠/展开子任务<br>
     * 数据自动保存到服务器<br>
-    * 支持导出/导入 JSON 备份
+
   </p>
 </div>
 
-<!-- IMPORT MODAL -->
-<div class="modal-bg" id="importModal">
-  <div class="modal">
-    <h3>导入任务数据</h3>
-    <input type="file" id="importFile" accept=".json" style="width:100%;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none;">
-    <div class="modal-btns">
-      <button class="m-btn" onclick="closeImportModal()">取消</button>
-      <button class="m-btn primary" onclick="doImport()">导入</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- TOAST -->
 <div class="toast-wrap" id="toastWrap"></div>
@@ -1221,6 +1202,21 @@ function saveData() {
   }, 500);
 }
 
+// Flush pending save on page unload
+window.addEventListener('beforeunload', () => {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer);
+    const data = serializeTasks();
+    const body = JSON.stringify({ merge: true, ...data });
+    fetch('/api/projects/' + projectId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    });
+  }
+});
+
 function serializeTasks() {
   const tasks = {};
   Object.values(S.tasks).forEach(t => {
@@ -1263,98 +1259,7 @@ async function loadSavedData() {
   }
 }
 
-// ===================== IMPORT / EXPORT =====================
-async function exportJSON() {
-  try {
-    // Fetch latest data from server first
-    let data;
-    if (projectId) {
-      const res = await fetch('/api/projects/' + projectId);
-      if (res.ok) {
-        data = await res.json();
-      }
-    }
-    if (!data) {
-      data = serializeTasks();
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const namePrefix = projectId ? projectId : 'taskmap';
-    a.download = `${namePrefix}_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('已导出 JSON 文件', 'success');
-  } catch(e) {
-    showToast('导出失败: ' + e.message, 'warning');
-  }
-}
 
-function showImportModal() {
-  document.getElementById('importModal').classList.add('show');
-  document.getElementById('importFile').value = '';
-}
-function closeImportModal() { document.getElementById('importModal').classList.remove('show'); }
-
-function doImport() {
-  const fileInput = document.getElementById('importFile');
-  const file = fileInput.files[0];
-  if (!file) { showToast('请选择一个 JSON 文件', 'warning'); return; }
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    if (!e || !e.target || typeof e.target.result !== 'string') {
-      showToast('文件读取失败', 'warning');
-      return;
-    }
-    const text = e.target.result.trim();
-    if (!text) { showToast('文件内容为空', 'warning'); return; }
-    try {
-      const data = JSON.parse(text);
-      if (!data || !data.tasks || typeof data.tasks !== 'object' || !Array.isArray(data.roots)) {
-        showToast('JSON 格式错误：文件缺少 tasks 或 roots 字段', 'warning');
-        return;
-      }
-
-      // Clear all existing
-      Object.keys(S.tasks).forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-      });
-      S.tasks = {};
-      S.roots = [];
-      S.selected = null;
-      svg.querySelectorAll('.conn-path').forEach(p => p.remove());
-
-      // Load from file
-      S.roots = data.roots;
-      S.nextId = data.nextId || 1;
-      colorIdx = data.colorIdx || 0;
-
-      Object.values(data.tasks).forEach(td => {
-        const task = {
-          id: td.id, title: td.title, description: td.description || '',
-          color: td.color, completed: td.completed || false,
-          collapsed: td.collapsed || false,
-          children: td.children || [],
-          parent: td.parent || null,
-          _x: 0, _y: 0, _w: 0, _h: 0, _subtreeH: 0,
-        };
-        S.tasks[task.id] = task;
-        renderTask(task);
-      });
-
-      layoutAll();
-      saveData();
-      closeImportModal();
-      showToast('导入成功！', 'success');
-    } catch(err) {
-      showToast('JSON 格式错误：' + err.message, 'warning');
-    }
-  };
-  reader.onerror = function() { showToast('文件读取失败', 'warning'); };
-  reader.readAsText(file);
-}
 
 // ===================== HELPERS =====================
 function escHtml(s) {
@@ -1467,15 +1372,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     selectTask(null);
     document.getElementById('helpPanel').classList.remove('show');
-    closeImportModal();
   }
   if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) addRootTask();
   if ((e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey) addChildToSelected();
   if (e.key === 'Enter') editSelected();
   if (e.key === ' ' && S.selected) { e.preventDefault(); toggleCollapseSelected(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); exportJSON(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); showImportModal(); }
   if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomIn(); }
   if ((e.metaKey || e.ctrlKey) && e.key === '-') { e.preventDefault(); zoomOut(); }
   if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); resetView(); }
