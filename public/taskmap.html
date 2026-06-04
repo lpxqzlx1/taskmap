@@ -960,7 +960,7 @@ function bindNodeEvents(el, task) {
       case 'toggle': toggleComplete(task.id); break;
       case 'color': cycleColor(task.id); break;
       case 'add-child': addChildTask(task.id); break;
-      case 'delete': removeTask(task.id); layoutAll(); saveData(); showToast('任务已删除', 'warning'); break;
+      case 'delete': removeTask(task.id); layoutAll(); saveNow(); showToast('任务已删除', 'warning'); break;
       case 'collapse': toggleCollapse(task.id); break;
     }
   });
@@ -1231,6 +1231,7 @@ function saveData() {
 
 async function saveNow() {
   const data = serializeTasks();
+  data._v = ++_saveVersion;
   try {
     await API.saveProject(data);
     showToast('已保存到服务器', 'success');
@@ -1255,6 +1256,7 @@ function flushSave() {
 }
 
 window.addEventListener('pagehide', flushSave);
+window.addEventListener('beforeunload', flushSave);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushSave();
 });
