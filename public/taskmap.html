@@ -1303,11 +1303,18 @@ function doImport() {
   if (!file) { showToast('请选择一个 JSON 文件', 'warning'); return; }
   const reader = new FileReader();
   reader.onload = async function(e) {
+    if (!e || !e.target || typeof e.target.result !== 'string') {
+      showToast('文件读取失败', 'warning');
+      return;
+    }
     const text = e.target.result.trim();
     if (!text) { showToast('文件内容为空', 'warning'); return; }
     try {
       const data = JSON.parse(text);
-      if (!data.tasks || !data.roots) throw new Error('格式错误');
+      if (!data || !data.tasks || typeof data.tasks !== 'object' || !Array.isArray(data.roots)) {
+        showToast('JSON 格式错误：文件缺少 tasks 或 roots 字段', 'warning');
+        return;
+      }
 
       // Clear all existing
       Object.keys(S.tasks).forEach(id => {

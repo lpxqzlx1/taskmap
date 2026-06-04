@@ -929,16 +929,17 @@
     var reader = new FileReader();
     reader.onload = async function(e) {
       try {
-        var data = JSON.parse(e.target.result);
-
-        // Validate format
-        if (!data.tasks || !data.roots) {
-          showToast('文件格式无效：需要包含 tasks 和 roots 字段', 'error');
+        if (!e || !e.target || typeof e.target.result !== 'string') {
+          showToast('文件读取失败', 'error');
           return;
         }
+        var text = e.target.result.trim();
+        if (!text) { showToast('文件内容为空', 'error'); return; }
+        var data = JSON.parse(text);
 
-        if (typeof data.tasks !== 'object' || !Array.isArray(data.roots)) {
-          showToast('文件格式无效：tasks 必须为对象，roots 必须为数组', 'error');
+        // Validate format
+        if (!data || !data.tasks || typeof data.tasks !== 'object' || !Array.isArray(data.roots)) {
+          showToast('文件格式无效：需要包含 tasks 和 roots 字段', 'error');
           return;
         }
 
