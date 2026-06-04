@@ -1244,6 +1244,7 @@ function flushSave() {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = null;
   const data = serializeTasks();
+  data._v = ++_saveVersion;
   const body = JSON.stringify(data);
   fetch('/api/projects/' + projectId, {
     method: 'PUT',
