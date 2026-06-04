@@ -1187,34 +1187,31 @@ function updateStats() {
   document.getElementById('statDone').textContent = done;
 }
 
-// ===================== PERSISTENCE (API-based + debounce) =====================
-let _saveTimer = null;
+// ===================== PERSISTENCE (API-based) =====================
+let _savePending = false;
 
 function saveData() {
-  if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(async () => {
-    try {
-      const data = serializeTasks();
-      await API.saveProject(data);
-    } catch(e) {
-      console.warn('Save failed:', e);
-    }
-  }, 500);
+  if (_savePending) return;
+  _savePending = true;
+  const data = serializeTasks();
+  API.saveProject(data).catch(e => console.warn('Save failed:', e)).finally(() => { _savePending = false; });
 }
 
-// Flush pending save on page unload
-window.addEventListener('beforeunload', () => {
-  if (_saveTimer) {
-    clearTimeout(_saveTimer);
-    const data = serializeTasks();
-    const body = JSON.stringify({ merge: true, ...data });
-    fetch('/api/projects/' + projectId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      keepalive: true,
-    });
-  }
+// On page unload/visibility loss, flush immediately with keepalive
+function flushSave() {
+  const data = serializeTasks();
+  const body = JSON.stringify({ merge: true, ...data });
+  fetch('/api/projects/' + projectId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushSave();
 });
 
 function serializeTasks() {
