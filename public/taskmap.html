@@ -1270,6 +1270,7 @@ async function loadSavedData() {
     colorIdx = data.colorIdx || 0;
 
     Object.values(data.tasks).forEach(td => {
+      if (!td || !td.id) return;
       const task = {
         id: td.id, title: td.title, description: td.description || '',
         color: td.color, completed: td.completed || false,

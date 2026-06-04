@@ -145,9 +145,13 @@ app.put('/api/projects/:id', (req, res) => {
     if (tasks !== undefined || roots !== undefined) {
       let data = readProjectData(projectId) || { tasks: {}, roots: [], nextId: 1, colorIdx: 0 };
 
-      // Merge tasks: union of old and new, new values win
+      // Merge tasks: union of old and new, new values win, filter undefined
       if (tasks !== undefined) {
-        data.tasks = { ...data.tasks, ...tasks };
+        const merged = { ...data.tasks };
+        for (const [k, v] of Object.entries(tasks)) {
+          if (v !== undefined && v !== null) merged[k] = v;
+        }
+        data.tasks = merged;
       }
 
       // Merge roots: use incoming roots (authoritative)
