@@ -141,19 +141,30 @@ app.put('/api/projects/:id', (req, res) => {
       }
     }
 
-    // Update project task data
+    // Update project task data - SMART MERGE
     if (tasks !== undefined || roots !== undefined) {
       let data = readProjectData(projectId) || { tasks: {}, roots: [], nextId: 1, colorIdx: 0 };
-      if (merge) {
-        // Merge: only update changed fields
-        if (tasks !== undefined) data.tasks = tasks;
-        if (roots !== undefined) data.roots = roots;
-        if (nextId !== undefined) data.nextId = nextId;
-        if (colorIdx !== undefined) data.colorIdx = colorIdx;
-      } else {
-        // Full replace
-        data = { tasks: tasks || {}, roots: roots || [], nextId: nextId || 1, colorIdx: colorIdx || 0 };
+
+      // Merge tasks: union of old and new, new values win
+      if (tasks !== undefined) {
+        data.tasks = { ...data.tasks, ...tasks };
       }
+
+      // Merge roots: use incoming roots (authoritative)
+      if (roots !== undefined) {
+        data.roots = roots;
+      }
+
+      // nextId: always take the larger value
+      if (nextId !== undefined) {
+        data.nextId = Math.max(data.nextId || 1, nextId);
+      }
+
+      // colorIdx: take incoming
+      if (colorIdx !== undefined) {
+        data.colorIdx = colorIdx;
+      }
+
       writeProjectData(projectId, data);
     }
 
