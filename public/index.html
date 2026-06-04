@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskMap · 任务管理器</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --card: #222633;
+    --border: #2e3348;
+    --text: #e4e6f0;
+    --text-dim: #7c829a;
+    --accent: #e94560;
+    --green: #2ecc71;
+    --blue: #4285f4;
+    --purple: #9b59b6;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.35);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    padding: 40px 48px 0;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .header h1 span {
+    color: var(--accent);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: #d63851;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(233, 69, 96, 0.3);
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--card);
+    border-color: var(--text-dim);
+    transform: translateY(-1px);
+  }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .header-subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  /* Hidden file input */
+  #importInput {
+    display: none;
+  }
+
+  /* Main content */
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 48px 60px;
+  }
+
+  /* Loading indicator */
+  .loading-indicator {
+    display: none;
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  .loading-indicator.active {
+    display: block;
+  }
+
+  .loading-skeleton {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .skeleton-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    display: flex;
+    gap: 0;
+  }
+
+  .skeleton-color-bar {
+    width: 5px;
+    flex-shrink: 0;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    background: var(--border);
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .skeleton-content {
+    flex: 1;
+    padding-left: 22px;
+  }
+
+  .skeleton-line {
+    height: 14px;
+    background: var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .skeleton-line:first-child {
+    width: 60%;
+    height: 18px;
+  }
+
+  .skeleton-line:nth-child(2) {
+    width: 80%;
+  }
+
+  .skeleton-line:nth-child(3) {
+    width: 40%;
+    height: 4px;
+    margin-top: 16px;
+  }
+
+  @keyframes shimmer {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.4; }
+  }
+
+  /* Project grid */
+  .project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* Project card */
+  .project-card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+  }
+
+  .project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  .project-card:active {
+    transform: translateY(-1px);
+  }
+
+  .color-bar {
+    width: 5px;
+    flex-shrink: 0;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+
+  .card-content {
+    flex: 1;
+    padding: 20px 22px;
+    min-width: 0;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .project-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    outline: none;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+
+  .project-name:hover {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .project-name:focus {
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .delete-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-dim);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .project-card:hover .delete-btn {
+    opacity: 1;
+  }
+
+  .delete-btn:hover {
+    background: rgba(233, 69, 96, 0.15);
+    color: var(--accent);
+  }
+
+  .delete-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .card-meta svg {
+    width: 13px;
+    height: 13px;
+    margin-right: 4px;
+    vertical-align: -2px;
+    opacity: 0.7;
+  }
+
+  /* Progress bar */
+  .progress-wrapper {
+    margin-top: 2px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    min-width: 0;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    background: var(--surface);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+  }
+
+  .empty-icon svg {
+    width: 36px;
+    height: 36px;
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+
+  .empty-state h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 400px;
+    margin: 0 auto 28px;
+    line-height: 1.7;
+  }
+
+  .empty-state .btn-primary {
+    padding: 12px 28px;
+    font-size: 15px;
+  }
+
+  /* Confirm modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+  }
+
+  .modal-overlay.active .modal {
+    transform: scale(1);
+  }
+
+  .modal h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .modal p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .btn-danger {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-danger:hover {
+    background: #d63851;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-size: 14px;
+    color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards;
+    max-width: 320px;
+  }
+
+  .toast.error {
+    border-left: 3px solid var(--accent);
+  }
+
+  .toast.success {
+    border-left: 3px solid var(--green);
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(40px); }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header {
+      padding: 24px 20px 0;
+    }
+    .main {
+      padding: 24px 20px 40px;
+    }
+    .project-grid {
+      grid-template-columns: 1fr;
+    }
+    .header h1 {
+      font-size: 22px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .header-actions {
+      width: 100%;
+    }
+    .header-actions .btn {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1><span>TaskMap</span> · 任务管理器</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="triggerImport()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        导入项目
+      </button>
+      <button class="btn btn-primary" onclick="createProject()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        新建项目
+      </button>
+    </div>
+  </div>
+  <p class="header-subtitle">管理你的所有任务项目，点击卡片进入编辑</p>
+</div>
+
+<input type="file" id="importInput" accept=".json" onchange="handleImport(event)">
+
+<div class="main">
+  <div id="loadingIndicator" class="loading-indicator">
+    <div class="loading-skeleton">
+      <div class="skeleton-card">
+        <div class="skeleton-color-bar"></div>
+        <div class="skeleton-content">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+        </div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-color-bar"></div>
+        <div class="skeleton-content">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+        </div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-color-bar"></div>
+        <div class="skeleton-content">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="projectGrid" class="project-grid"></div>
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <h2>还没有任何项目</h2>
+    <p>创建你的第一个任务项目，或导入已有的 JSON 文件开始使用 TaskMap 管理任务</p>
+    <button class="btn btn-primary" onclick="createProject()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      创建第一个项目
+    </button>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>确认删除</h3>
+    <p id="deleteModalText">确定要删除这个项目吗？此操作无法撤销。</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">取消</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ============ Constants ============
+  const COLORS = ['#e94560', '#4285f4', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c', '#e67e22', '#3498db', '#e74c3c', '#2c3e50'];
+
+  // ============ API helpers ============
+  const API = {
+    async getProjects() {
+      const res = await fetch('/api/projects');
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      return res.json();
+    },
+    async getProject(id) {
+      const res = await fetch('/api/projects/' + id);
+      if (!res.ok) throw new Error('Project not found');
+      return res.json();
+    },
+    async createProject(data) {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create project');
+      return res.json();
+    },
+    async updateProject(id, data) {
+      const res = await fetch('/api/projects/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merge: true, ...data }),
+      });
+      if (!res.ok) throw new Error('Failed to update project');
+      return res.json();
+    },
+    async deleteProject(id) {
+      const res = await fetch('/api/projects/' + id, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete project');
+      return res.json();
+    },
+    async importProject(data) {
+      const res = await fetch('/api/projects/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to import project');
+      return res.json();
+    },
+  };
+
+  // ============ SVG Icons ============
+  const ICONS = {
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  };
+
+  // ============ Data helpers ============
+  async function getProjects() {
+    return await API.getProjects();
+  }
+
+  function randomColor() {
+    return COLORS[Math.floor(Math.random() * COLORS.length)];
+  }
+
+  function formatDate(timestamp) {
+    const d = new Date(timestamp);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return y + '-' + m + '-' + day + ' ' + h + ':' + min;
+  }
+
+  // ============ Render ============
+  function renderProjects(projects) {
+    const grid = document.getElementById('projectGrid');
+    const empty = document.getElementById('emptyState');
+    const loading = document.getElementById('loadingIndicator');
+
+    // Hide loading
+    loading.classList.remove('active');
+
+    if (!projects || projects.length === 0) {
+      grid.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+
+    grid.style.display = 'grid';
+    empty.style.display = 'none';
+
+    grid.innerHTML = projects.map(function(proj) {
+      const counts = { total: proj.taskCount || 0, done: proj.doneCount || 0 };
+      const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
+      const progressColor = proj.color || '#4285f4';
+
+      return '<div class="project-card" data-id="' + proj.id + '" onclick="openProject(\'' + proj.id + '\')">' +
+        '<div class="color-bar" style="background:' + (proj.color || '#4285f4') + '"></div>' +
+        '<div class="card-content">' +
+          '<div class="card-header">' +
+            '<div class="project-name" ' +
+              'contenteditable="false" ' +
+              'data-id="' + proj.id + '" ' +
+              'ondblclick="startRename(this, event)" ' +
+              'onblur="finishRename(this)" ' +
+              'onkeydown="renameKeydown(event, this)" ' +
+              'title="双击重命名">' +
+              escapeHtml(proj.name) +
+            '</div>' +
+          '</div>' +
+          '<div class="card-meta">' +
+            '<span>' + ICONS.calendar + formatDate(proj.createdAt) + '</span>' +
+            '<span>' + ICONS.task + counts.done + ' / ' + counts.total + ' 任务</span>' +
+          '</div>' +
+          '<div class="progress-wrapper">' +
+            '<div class="progress-label">' +
+              '<span>完成进度</span>' +
+              '<span>' + pct + '%</span>' +
+            '</div>' +
+            '<div class="progress-bar">' +
+              '<div class="progress-fill" style="width:' + pct + '%;background:' + progressColor + '"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="delete-btn" onclick="confirmDelete(\'' + proj.id + '\', event)" title="删除项目">' +
+          ICONS.trash +
+        '</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function showLoading() {
+    const grid = document.getElementById('projectGrid');
+    const empty = document.getElementById('emptyState');
+    const loading = document.getElementById('loadingIndicator');
+
+    grid.style.display = 'none';
+    empty.style.display = 'none';
+    loading.classList.add('active');
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+  }
+
+  // ============ Create project ============
+  async function createProject() {
+    try {
+      var project = await API.createProject({
+        name: '新项目',
+        color: randomColor(),
+        createdAt: Date.now()
+      });
+
+      window.open('taskmap.html?project=' + project.id, '_blank');
+      await init();
+    } catch (err) {
+      showToast('创建项目失败', 'error');
+    }
+  }
+
+  // ============ Open project ============
+  function openProject(id) {
+    // Don't open if user is editing name
+    var activeEl = document.activeElement;
+    if (activeEl && activeEl.classList.contains('project-name') && activeEl.contentEditable === 'true') {
+      return;
+    }
+    window.open('taskmap-pomodoro.html?project=' + id, '_blank');
+  }
+
+  // ============ Rename ============
+  function startRename(el, event) {
+    event.stopPropagation();
+    el.contentEditable = 'true';
+    el.focus();
+
+    // Select all text
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  async function finishRename(el) {
+    el.contentEditable = 'false';
+    var id = el.getAttribute('data-id');
+    var newName = el.textContent.trim();
+
+    if (!newName) {
+      // Revert to original name
+      try {
+        var proj = await API.getProject(id);
+        if (proj) el.textContent = proj.name;
+      } catch (err) {
+        // ignore
+      }
+      return;
+    }
+
+    try {
+      await API.updateProject(id, { name: newName });
+    } catch (err) {
+      showToast('重命名失败', 'error');
+      // Try to revert
+      try {
+        var proj = await API.getProject(id);
+        if (proj) el.textContent = proj.name;
+      } catch (e2) {
+        // ignore
+      }
+    }
+  }
+
+  async function renameKeydown(event, el) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      el.blur();
+    } else if (event.key === 'Escape') {
+      // Revert
+      try {
+        var id = el.getAttribute('data-id');
+        var proj = await API.getProject(id);
+        if (proj) el.textContent = proj.name;
+      } catch (err) {
+        // ignore
+      }
+      el.contentEditable = 'false';
+    }
+    event.stopPropagation();
+  }
+
+  // ============ Delete ============
+  var pendingDeleteId = null;
+
+  async function confirmDelete(id, event) {
+    event.stopPropagation();
+    pendingDeleteId = id;
+
+    try {
+      var proj = await API.getProject(id);
+      var name = proj ? proj.name : '此项目';
+      document.getElementById('deleteModalText').textContent = '确定要删除项目「' + name + '」吗？此操作无法撤销。';
+      document.getElementById('deleteModal').classList.add('active');
+    } catch (err) {
+      showToast('获取项目信息失败', 'error');
+    }
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('active');
+    pendingDeleteId = null;
+  }
+
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
+    if (!pendingDeleteId) return;
+
+    try {
+      await API.deleteProject(pendingDeleteId);
+      closeDeleteModal();
+      await init();
+      showToast('项目已删除', 'success');
+    } catch (err) {
+      showToast('删除失败', 'error');
+    }
+  });
+
+  // Close modal on overlay click
+  document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteModal();
+  });
+
+  // ============ Import ============
+  function triggerImport() {
+    document.getElementById('importInput').click();
+  }
+
+  async function handleImport(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    var importBtn = document.querySelector('.btn-secondary');
+    var originalText = importBtn ? importBtn.textContent : '';
+    if (importBtn) {
+      importBtn.textContent = '导入中...';
+      importBtn.disabled = true;
+    }
+
+    var reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        var data = JSON.parse(e.target.result);
+
+        // Validate format
+        if (!data.tasks || !data.roots) {
+          showToast('文件格式无效：需要包含 tasks 和 roots 字段', 'error');
+          return;
+        }
+
+        if (typeof data.tasks !== 'object' || !Array.isArray(data.roots)) {
+          showToast('文件格式无效：tasks 必须为对象，roots 必须为数组', 'error');
+          return;
+        }
+
+        var name = file.name.replace(/\.json$/i, '') || '导入项目';
+
+        var result = await API.importProject({
+          name: name,
+          color: randomColor(),
+          createdAt: Date.now(),
+          tasks: data.tasks,
+          roots: data.roots,
+          nextId: data.nextId || 1,
+          colorIdx: data.colorIdx || 0
+        });
+
+        await init();
+        showToast('项目「' + name + '」导入成功', 'success');
+      } catch (err) {
+        showToast('导入失败：无法解析 JSON 文件', 'error');
+      } finally {
+        if (importBtn) {
+          importBtn.textContent = originalText;
+          importBtn.disabled = false;
+        }
+      }
+    };
+    reader.readAsText(file);
+
+    // Reset input so same file can be re-imported
+    event.target.value = '';
+  }
+
+  // ============ Toast ============
+  function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + (type || '');
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 3000);
+  }
+
+  // ============ Init ============
+  async function init() {
+    showLoading();
+    try {
+      var projects = await API.getProjects();
+      renderProjects(projects);
+    } catch (err) {
+      document.getElementById('loadingIndicator').classList.remove('active');
+      showToast('加载项目列表失败', 'error');
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>
