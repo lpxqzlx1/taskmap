@@ -22,10 +22,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve static files (CSS, JS, images) without auth, but protect HTML pages
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/' || (!req.path.includes('.') && !req.path.startsWith('/api/'))) {
+    // HTML pages and SPA routes need auth check
+    if (req.path === '/login.html' || req.path === '/login') {
+      return res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    }
+    if (req.sessionToken !== AUTH_TOKEN) {
+      return res.redirect('/login.html');
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ===================== AUTH =====================
-const AUTH_TOKEN = 'taskmap_session_' + Date.now();
+const AUTH_TOKEN = 'taskmap_auth_2024_fixed';
 const AUTH_USER = 'taskmap';
 const AUTH_PASS = 'taskmap';
 
@@ -184,35 +198,32 @@ app.put('/api/projects/:id', (req, res) => {
       }
     }
 
-    // Update project task data - SMART MERGE
+    // Update project task data
     if (tasks !== undefined || roots !== undefined) {
-      let data = readProjectData(projectId) || { tasks: {}, roots: [], nextId: 1, colorIdx: 0 };
-
-      // Merge tasks: union of old and new, new values win, filter undefined
-      if (tasks !== undefined) {
-        const merged = { ...data.tasks };
-        for (const [k, v] of Object.entries(tasks)) {
-          if (v !== undefined && v !== null) merged[k] = v;
+      if (_v !== undefined) {
+        // Versioned save: full replace (trust the latest version)
+        const data = {
+          tasks: tasks || {},
+          roots: roots || [],
+          nextId: nextId || 1,
+          colorIdx: colorIdx || 0,
+        };
+        writeProjectData(projectId, data);
+      } else {
+        // Legacy save without version: smart merge
+        let data = readProjectData(projectId) || { tasks: {}, roots: [], nextId: 1, colorIdx: 0 };
+        if (tasks !== undefined) {
+          const merged = { ...data.tasks };
+          for (var k in tasks) {
+            if (tasks[k] !== undefined && tasks[k] !== null) merged[k] = tasks[k];
+          }
+          data.tasks = merged;
         }
-        data.tasks = merged;
+        if (roots !== undefined) data.roots = roots;
+        if (nextId !== undefined) data.nextId = Math.max(data.nextId || 1, nextId);
+        if (colorIdx !== undefined) data.colorIdx = colorIdx;
+        writeProjectData(projectId, data);
       }
-
-      // Merge roots: use incoming roots (authoritative)
-      if (roots !== undefined) {
-        data.roots = roots;
-      }
-
-      // nextId: always take the larger value
-      if (nextId !== undefined) {
-        data.nextId = Math.max(data.nextId || 1, nextId);
-      }
-
-      // colorIdx: take incoming
-      if (colorIdx !== undefined) {
-        data.colorIdx = colorIdx;
-      }
-
-      writeProjectData(projectId, data);
     }
 
     res.json({ success: true });
