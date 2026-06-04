@@ -13,7 +13,50 @@ if (!fs.existsSync(PROJECTS_FILE)) fs.writeFileSync(PROJECTS_FILE, '[]');
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
+
+// Cookie parser middleware
+app.use((req, res, next) => {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/(?:^|;\s*)token=([^;]*)/);
+  req.sessionToken = match ? match[1] : null;
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ===================== AUTH =====================
+const AUTH_TOKEN = 'taskmap_session_' + Date.now();
+const AUTH_USER = 'taskmap';
+const AUTH_PASS = 'taskmap';
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === AUTH_USER && password === AUTH_PASS) {
+    res.cookie('token', AUTH_TOKEN, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    return res.json({ success: true });
+  }
+  res.status(401).json({ error: '用户名或密码错误' });
+});
+
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ success: true });
+});
+
+// Auth middleware for API routes
+function requireAuth(req, res, next) {
+  if (req.sessionToken === AUTH_TOKEN) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.redirect('/login.html');
+}
+
+// Protect all API routes except login/logout
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login' || req.path === '/logout') return next();
+  requireAuth(req, res, next);
+});
 
 // ===================== HELPERS =====================
 function readProjects() {
@@ -249,6 +292,14 @@ app.get('/api/debug', (_req, res) => {
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Not found' });
+  }
+  // Allow login page without auth
+  if (req.path === '/login.html' || req.path === '/login') {
+    return res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  }
+  // Check auth for all other pages
+  if (req.sessionToken !== AUTH_TOKEN) {
+    return res.redirect('/login.html');
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

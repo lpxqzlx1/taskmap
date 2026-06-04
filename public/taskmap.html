@@ -460,6 +460,10 @@
     保存
   </button>
   <div class="spacer"></div>
+  <button class="tb" onclick="logout()" title="Logout">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Logout
+  </button>
   <button class="tb" onclick="toggleHelp()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
   </button>
@@ -1316,6 +1320,12 @@ function showToast(msg, type = 'info') {
 }
 
 function toggleHelp() { document.getElementById('helpPanel').classList.toggle('show'); }
+
+function logout() {
+  fetch('/api/logout', { method: 'POST' }).then(function() {
+    window.location.href = '/login.html';
+  });
+}
 
 // ===================== SHOW NO-PROJECT STATE =====================
 function showNoProject() {

@@ -576,9 +576,13 @@
   <div class="header-top">
     <h1><span>TaskMap</span> · 任务管理器</h1>
     <div class="header-actions">
+      <button class="btn btn-secondary" onclick="logout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </button>
       <button class="btn btn-primary" onclick="createProject()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        新建项目
+        New Project
       </button>
     </div>
   </div>
@@ -919,6 +923,13 @@
     setTimeout(function() {
       if (toast.parentNode) toast.parentNode.removeChild(toast);
     }, 3000);
+  }
+
+  // ============ Logout ============
+  function logout() {
+    fetch('/api/logout', { method: 'POST' }).then(function() {
+      window.location.href = '/login.html';
+    });
   }
 
   // ============ Init ============
